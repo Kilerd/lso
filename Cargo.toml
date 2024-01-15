@@ -1,0 +1,11 @@
+[package]
+name = "lso"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.79"
+dotenv = "0.15.0"
+futures-util = "0.3.30"
+mysql_async = "0.33.0"
+tokio = { version="1.35.1", features = ["rt-multi-thread", "macros"] }
