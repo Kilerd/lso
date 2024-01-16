@@ -34,7 +34,7 @@ struct ExplainResult {
 async fn main() -> Result<()> {
     dotenv().ok();
     pretty_env_logger::init();
-    println!("Hello, world!");
+    info!("Language security officer is launching...");
     let opts = Opts::from_url(&std::env::var("SQL_DSN").expect("SQL_DSN must be set"))?;
     let pool = mysql_async::Pool::new(opts);
     let mut conn = pool.get_conn().await?;
@@ -60,7 +60,6 @@ async fn main() -> Result<()> {
 
                 let query = query_event.query().trim().to_string();
                 info!("[{}:{}] get event, `{}`", query_event.thread_id(), query_event.execution_time(), &query);
-                dbg!(&query);
                 if query.ne("BEGIN") && query.ne("COMMIT") {
                     let explain_sql = format!("EXPLAIN {}", &query);
                     info!("explaining sql: {}", &query);
