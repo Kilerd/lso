@@ -3,8 +3,7 @@ use dotenv::dotenv;
 use futures_util::StreamExt;
 use mysql_async::binlog::events::{QueryEvent, WriteRowsEvent};
 use mysql_async::binlog::EventType;
-use mysql_async::prelude::Query;
-use mysql_async::prelude::WithParams;
+use mysql_async::prelude::{Query, WithParams};
 use mysql_async::{BinlogStreamRequest, Opts};
 
 #[derive(Debug)]
@@ -32,11 +31,7 @@ async fn main() -> Result<()> {
     dbg!(&bin_logs);
     let option = bin_logs.pop().expect("cannot get latest bin log file");
     let mut binlog = conn
-        .get_binlog_stream(
-            BinlogStreamRequest::new(1)
-                .with_filename(option.log_name.as_bytes())
-                .with_pos(option.file_size),
-        )
+        .get_binlog_stream(BinlogStreamRequest::new(1).with_filename(option.log_name.as_bytes()).with_pos(option.file_size))
         .await?;
 
     while let Some(Ok(event)) = binlog.next().await {
