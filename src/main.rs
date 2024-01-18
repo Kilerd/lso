@@ -18,16 +18,21 @@ struct BinLogRow {
     encrypted: String,
 }
 
+/// explain result for target sql query, all analysis are based on the EXPLAIN execution from mysql,
+///
+/// REF: https://dev.to/amitiwary999/get-useful-information-from-mysql-explain-2i97
 #[derive(Debug)]
 struct ExplainResult {
-    // raw info
+    id: Uuid,
+
+    /// raw query sql
     query: String,
 
     /// unique uuid for each txn, used for analysing queries within one transaction. mark it as optional cause some queries are not executed in a valid transaction
     txn_uuid: Option<Uuid>,
 
     // explain info
-    id: u64,
+    explain_id: u64,
     select_type: String,
     table: String,
     partitions: Option<String>,
@@ -96,10 +101,11 @@ async fn main() -> Result<()> {
                             .with(())
                             .map(
                                 &mut explain_conn,
-                                |(id, select_type, table, partitions, _type, possible_keys, key, key_len, _ref, rows, filtered, extra)| ExplainResult {
+                                |(explain_id, select_type, table, partitions, _type, possible_keys, key, key_len, _ref, rows, filtered, extra)| ExplainResult {
+                                    id: Uuid::new_v4(),
                                     query: sql.to_owned(),
                                     txn_uuid,
-                                    id,
+                                    explain_id,
                                     select_type,
                                     table,
                                     partitions,
