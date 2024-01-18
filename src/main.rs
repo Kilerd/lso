@@ -1,11 +1,15 @@
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use anyhow::Result;
 use dotenv::dotenv;
 use futures_util::StreamExt;
-use log::info;
+use log::{debug, info};
 use mysql_async::binlog::events::{QueryEvent, WriteRowsEvent};
 use mysql_async::binlog::EventType;
 use mysql_async::prelude::{Query, Queryable, WithParams};
 use mysql_async::{BinlogStreamRequest, Opts};
+use uuid::Uuid;
 
 #[derive(Debug)]
 struct BinLogRow {
@@ -16,6 +20,13 @@ struct BinLogRow {
 
 #[derive(Debug)]
 struct ExplainResult {
+    // raw info
+    query: String,
+
+    /// unique uuid for each txn, used for analysing queries within one transaction. mark it as optional cause some queries are not executed in a valid transaction
+    txn_uuid: Option<Uuid>,
+
+    // explain info
     id: u64,
     select_type: String,
     table: String,
@@ -28,6 +39,9 @@ struct ExplainResult {
     rows: Option<u64>,
     filtered: Option<f64>,
     extra: Option<String>,
+
+    // extra meta
+    record_time: u128,
 }
 
 #[tokio::main]
@@ -52,37 +66,59 @@ async fn main() -> Result<()> {
         .get_binlog_stream(BinlogStreamRequest::new(1).with_filename(option.log_name.as_bytes()).with_pos(option.file_size))
         .await?;
 
+    let mut thread_txn: HashMap<u32, Uuid> = HashMap::default();
     while let Some(Ok(event)) = binlog.next().await {
         let eventtype = event.header().event_type()?;
         match eventtype {
             EventType::QUERY_EVENT => {
                 let query_event: QueryEvent = event.read_event()?;
-
+                let thread_id = query_event.thread_id();
                 let query = query_event.query().trim().to_string();
                 info!("[{}:{}] get event, `{}`", query_event.thread_id(), query_event.execution_time(), &query);
-                if query.ne("BEGIN") && query.ne("COMMIT") {
-                    let explain_sql = format!("EXPLAIN {}", &query);
-                    info!("explaining sql: {}", &query);
-                    let explain_result = explain_sql
-                        .with(())
-                        .map(
-                            &mut explain_conn,
-                            |(id, select_type, table, partitions, _type, possible_keys, key, key_len, _ref, rows, filtered, extra)| ExplainResult {
-                                id,
-                                select_type,
-                                table,
-                                partitions,
-                                _type,
-                                possible_keys,
-                                key,
-                                key_len,
-                                _ref,
-                                rows,
-                                filtered,
-                                extra,
-                            },
-                        )
-                        .await?;
+
+                match query.as_ref() {
+                    "BEGIN" => {
+                        // txn begin
+                        thread_txn.insert(thread_id, Uuid::new_v4());
+                    }
+                    "COMMIT" => {
+                        // commit txn
+                        thread_txn.remove(&thread_id);
+                    }
+                    sql => {
+                        let explain_sql = format!("EXPLAIN {}", &sql);
+
+                        let current_ts = get_current_timestamp_millis();
+                        let txn_uuid = thread_txn.get(&thread_id).cloned();
+
+                        debug!("explaining sql: {}", &query);
+                        let explain_result = explain_sql
+                            .with(())
+                            .map(
+                                &mut explain_conn,
+                                |(id, select_type, table, partitions, _type, possible_keys, key, key_len, _ref, rows, filtered, extra)| ExplainResult {
+                                    query: sql.to_owned(),
+                                    txn_uuid,
+                                    id,
+                                    select_type,
+                                    table,
+                                    partitions,
+                                    _type,
+                                    possible_keys,
+                                    key,
+                                    key_len,
+                                    _ref,
+                                    rows,
+                                    filtered,
+                                    extra,
+
+                                    record_time: current_ts,
+                                },
+                            )
+                            .await?;
+
+                        debug!("explain_result: {:?}", &explain_result);
+                    }
                 }
             }
             EventType::WRITE_ROWS_EVENT => {
@@ -94,4 +130,10 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn get_current_timestamp_millis() -> u128 {
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
+    since_the_epoch.as_millis()
 }

@@ -822,7 +822,9 @@ dependencies = [
  "log",
  "mysql_async",
  "pretty_env_logger",
+ "time",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1644,6 +1646,7 @@ checksum = "f657ba42c3f86e7680e53c8cd3af8abbe56b5491790b46e22e19c0d57463583e"
 dependencies = [
  "deranged",
  "powerfmt",
+ "serde",
  "time-core",
  "time-macros",
 ]
@@ -1831,6 +1834,9 @@ name = "uuid"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "vcpkg"
