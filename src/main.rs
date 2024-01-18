@@ -11,6 +11,8 @@ use mysql_async::prelude::{Query, Queryable, WithParams};
 use mysql_async::{BinlogStreamRequest, Opts};
 use uuid::Uuid;
 
+mod analyzers;
+
 #[derive(Debug)]
 struct BinLogRow {
     log_name: String,
