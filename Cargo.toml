@@ -2,6 +2,7 @@
 name = "lso"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0 or MIT"
 
 [dependencies]
 anyhow = "1.0.79"
