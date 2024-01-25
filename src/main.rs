@@ -39,6 +39,7 @@ async fn main() -> Result<()> {
     info!("Language security officer is launching...");
 
     info!("opening the sqlite as storage...");
+    //todo: cli flag to enable persistent storage and sql query histories
     let sqlite_pool = Arc::new(SqlitePool::connect("sqlite::memory:").await?);
 
     info!("running sqlite migrations...");
