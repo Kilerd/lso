@@ -9,6 +9,8 @@ use mysql_async::binlog::events::{QueryEvent, WriteRowsEvent};
 use mysql_async::binlog::EventType;
 use mysql_async::prelude::{Query, Queryable, WithParams};
 use mysql_async::{BinlogStreamRequest, Opts};
+use sqlx::sqlite::SqlitePool;
+use sqlx::{Connection, SqliteConnection};
 use uuid::Uuid;
 
 mod analyzers;
@@ -34,21 +36,21 @@ struct ExplainResult {
     txn_uuid: Option<Uuid>,
 
     // explain info
-    explain_id: u64,
+    explain_id: i64,
     select_type: String,
     table: String,
     partitions: Option<String>,
     _type: String,
     possible_keys: Option<String>,
     key: Option<String>,
-    key_len: Option<u64>,
+    key_len: Option<i64>,
     _ref: Option<String>,
-    rows: Option<u64>,
+    rows: Option<i64>,
     filtered: Option<f64>,
     extra: Option<String>,
 
     // extra meta
-    record_time: u128,
+    record_time: i64,
 }
 
 #[tokio::main]
@@ -56,6 +58,13 @@ async fn main() -> Result<()> {
     dotenv().ok();
     pretty_env_logger::init();
     info!("Language security officer is launching...");
+
+    info!("opening the sqlite as storage...");
+    let mut sqlite_pool = SqlitePool::connect("sqlite::memory:").await?;
+
+    info!("running sqlite migrations...");
+    sqlx::migrate!("./migrations").run(&sqlite_pool).await?;
+
     let opts = Opts::from_url(&std::env::var("SQL_DSN").expect("SQL_DSN must be set"))?;
     let pool = mysql_async::Pool::new(opts);
     let mut conn = pool.get_conn().await?;
@@ -74,6 +83,7 @@ async fn main() -> Result<()> {
         .await?;
 
     let mut thread_txn: HashMap<u32, Uuid> = HashMap::default();
+    info!("starting listening bin log events...");
     while let Some(Ok(event)) = binlog.next().await {
         let eventtype = event.header().event_type()?;
         match eventtype {
@@ -99,7 +109,7 @@ async fn main() -> Result<()> {
                         let txn_uuid = thread_txn.get(&thread_id).cloned();
 
                         debug!("explaining sql: {}", &query);
-                        let explain_result = explain_sql
+                        let mut explain_result = explain_sql
                             .with(())
                             .map(
                                 &mut explain_conn,
@@ -124,8 +134,38 @@ async fn main() -> Result<()> {
                                 },
                             )
                             .await?;
+                        let explain_result = explain_result.pop().expect("cannot get explain result");
 
                         debug!("explain_result: {:?}", &explain_result);
+
+                        sqlx::query!(
+                            r#"
+                            INSERT INTO explains (id, query, txn_uuid, explain_id, select_type, "table", partitions, _type, possible_keys, key,
+                                                  key_len, _ref, rows, filtered, extra, record_time)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                            "#,
+                            explain_result.id,
+                            explain_result.query,
+                            explain_result.txn_uuid,
+                            explain_result.explain_id,
+                            explain_result.select_type,
+                            explain_result.table,
+                            explain_result.partitions,
+                            explain_result._type,
+                            explain_result.possible_keys,
+                            explain_result.key,
+                            explain_result.key_len,
+                            explain_result._ref,
+                            explain_result.rows,
+                            explain_result.filtered,
+                            explain_result.explain_id,
+                            explain_result.record_time
+                        )
+                        .execute(&sqlite_pool)
+                        .await?;
+                        debug!("save explain result [id:{}]", &explain_result.id);
+                        // todo: store explain result into sqlite
+                        //
                     }
                 }
             }
@@ -140,8 +180,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_current_timestamp_millis() -> u128 {
+/// get timestamp millis and format it as i64
+/// function `as_millis` return u128 as data format,
+/// and we store it into i64,
+/// the max number of i64 is `9223372036854775807`, should be safe for a while
+fn get_current_timestamp_millis() -> i64 {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
-    since_the_epoch.as_millis()
+    since_the_epoch.as_millis() as i64
 }
