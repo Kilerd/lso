@@ -12,7 +12,7 @@ pub struct NoIndexMatchResult {
 impl Analyzer for NoIndexMatchAnalyzer {
     type Output = NoIndexMatchResult;
 
-    fn analyse(&self, data: ExplainResult) -> Result<Self::Output> {
+    fn analyse(&self, data: &ExplainResult) -> Result<Self::Output> {
         let pass = data.key.is_some();
 
         Ok(NoIndexMatchResult {

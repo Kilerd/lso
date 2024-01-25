@@ -1,7 +1,10 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use axum::routing::get;
+use axum::Router;
 use dotenv::dotenv;
 use futures_util::StreamExt;
 use log::{debug, info};
@@ -10,47 +13,23 @@ use mysql_async::binlog::EventType;
 use mysql_async::prelude::{Query, Queryable, WithParams};
 use mysql_async::{BinlogStreamRequest, Opts};
 use sqlx::sqlite::SqlitePool;
-use sqlx::{Connection, SqliteConnection};
+use sqlx::{Connection, Pool, Sqlite};
 use uuid::Uuid;
 
+use crate::analyzers::no_index_match_analyzer::NoIndexMatchAnalyzer;
+use crate::analyzers::Analyzer;
+use crate::domain::ExplainResult;
+
 mod analyzers;
+mod domain;
+mod routes;
+mod templates;
 
 #[derive(Debug)]
 struct BinLogRow {
     log_name: String,
     file_size: u64,
     encrypted: String,
-}
-
-/// explain result for target sql query, all analysis are based on the EXPLAIN execution from mysql,
-///
-/// REF: https://dev.to/amitiwary999/get-useful-information-from-mysql-explain-2i97
-#[derive(Debug)]
-struct ExplainResult {
-    id: Uuid,
-
-    /// raw query sql
-    query: String,
-
-    /// unique uuid for each txn, used for analysing queries within one transaction. mark it as optional cause some queries are not executed in a valid transaction
-    txn_uuid: Option<Uuid>,
-
-    // explain info
-    explain_id: i64,
-    select_type: String,
-    table: String,
-    partitions: Option<String>,
-    _type: String,
-    possible_keys: Option<String>,
-    key: Option<String>,
-    key_len: Option<i64>,
-    _ref: Option<String>,
-    rows: Option<i64>,
-    filtered: Option<f64>,
-    extra: Option<String>,
-
-    // extra meta
-    record_time: i64,
 }
 
 #[tokio::main]
@@ -60,11 +39,26 @@ async fn main() -> Result<()> {
     info!("Language security officer is launching...");
 
     info!("opening the sqlite as storage...");
-    let mut sqlite_pool = SqlitePool::connect("sqlite::memory:").await?;
+    let sqlite_pool = Arc::new(SqlitePool::connect("sqlite::memory:").await?);
 
     info!("running sqlite migrations...");
-    sqlx::migrate!("./migrations").run(&sqlite_pool).await?;
+    sqlx::migrate!("./migrations").run(&*sqlite_pool).await?;
 
+    tokio::spawn(mysql_bin_log_listener(sqlite_pool.clone()));
+
+    let app = Router::new()
+        // `GET /` goes to `root`
+        .route("/", get(routes::common::index))
+        .with_state(sqlite_pool.clone());
+
+    // run our app with hyper, listening globally on port 3000
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
+    info!("starting web server...");
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+async fn mysql_bin_log_listener(sqlite_pool: Arc<Pool<Sqlite>>) -> Result<()> {
     let opts = Opts::from_url(&std::env::var("SQL_DSN").expect("SQL_DSN must be set"))?;
     let pool = mysql_async::Pool::new(opts);
     let mut conn = pool.get_conn().await?;
@@ -114,9 +108,9 @@ async fn main() -> Result<()> {
                             .map(
                                 &mut explain_conn,
                                 |(explain_id, select_type, table, partitions, _type, possible_keys, key, key_len, _ref, rows, filtered, extra)| ExplainResult {
-                                    id: Uuid::new_v4(),
+                                    id: Uuid::new_v4().to_string(),
                                     query: sql.to_owned(),
-                                    txn_uuid,
+                                    txn_uuid: txn_uuid.map(|it| it.to_string()),
                                     explain_id,
                                     select_type,
                                     table,
@@ -161,11 +155,12 @@ async fn main() -> Result<()> {
                             explain_result.explain_id,
                             explain_result.record_time
                         )
-                        .execute(&sqlite_pool)
+                        .execute(&*sqlite_pool)
                         .await?;
                         debug!("save explain result [id:{}]", &explain_result.id);
-                        // todo: store explain result into sqlite
-                        //
+
+                        debug!("dispatch analyzers for explain result [id:{}]", &explain_result.id);
+                        NoIndexMatchAnalyzer {}.analyse(&explain_result);
                     }
                 }
             }

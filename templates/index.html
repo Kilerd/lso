@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f6f6f6;
+        }
+    </style>
+    <title>Document</title>
+</head>
+<body>
+
+<h1>hello lso</h1>
+<table>
+    <tr>
+        <td>type</td>
+        <td>query</td>
+        <td>key match</td>
+    </tr>
+    {% for explain in explains %}
+    <tr>
+        <td>{{ explain.select_type }}</td>
+        <td>{{ explain.query }}</td>
+        <td>{% if explain.key.is_some() %}{{ explain.key.as_ref().unwrap() }} {% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+</body>
+</html>

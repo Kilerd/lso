@@ -1,11 +1,11 @@
 -- Add migration script here
 create table explains
 (
-    id            varchar not null
+    id            text not null
         constraint explains_pk
             primary key,
     query         varchar not null,
-    txn_uuid      varchar,
+    txn_uuid      text,
     explain_id    integer not null,
     select_type   varchar not null,
     "table"       varchar not null,
