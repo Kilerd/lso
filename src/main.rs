@@ -142,7 +142,7 @@ async fn mysql_bin_log_listener(sqlite_pool: Arc<Pool<Sqlite>>) -> Result<()> {
                                 },
                             )
                             .await?;
-                        let explain_result = explain_result.pop().expect("cannot get explain result");
+                        let explain_result = Arc::new(explain_result.pop().expect("cannot get explain result"));
 
                         debug!("explain_result: {:?}", &explain_result);
 
@@ -174,7 +174,7 @@ async fn mysql_bin_log_listener(sqlite_pool: Arc<Pool<Sqlite>>) -> Result<()> {
                         debug!("save explain result [id:{}]", &explain_result.id);
 
                         debug!("dispatch analyzers for explain result [id:{}]", &explain_result.id);
-                        NoIndexMatchAnalyzer {}.analyse(&explain_result);
+                        tokio::spawn(NoIndexMatchAnalyzer {}.process(explain_result.clone(), sqlite_pool.clone()));
                     }
                 }
             }

@@ -31,3 +31,15 @@ pub struct ExplainResult {
     // extra meta
     pub record_time: i64,
 }
+
+/// analyse result
+#[derive(Debug, FromRow)]
+pub struct AnalyseResult {
+    pub id: i32,
+
+    pub explain_id: String,
+
+    pub name: String,
+    pub pass: bool,
+    pub msg: Option<String>,
+}
