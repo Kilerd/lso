@@ -35,7 +35,7 @@ pub struct ExplainResult {
 /// analyse result
 #[derive(Debug, FromRow)]
 pub struct AnalyseResult {
-    pub id: i32,
+    pub id: i64,
 
     pub explain_id: String,
 

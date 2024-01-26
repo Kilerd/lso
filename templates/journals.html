@@ -65,8 +65,7 @@
         <title>Document</title>
     </head>
     <body>
-        <h1>hello lso</h1>
-        <a href="/journals"><h2>journals</h2></a>
+        <h1>Journals</h1>
         <table>
             <tr>
                 <td>type</td>
@@ -74,32 +73,23 @@
                 <td>key match</td>
                 <td>Opration</td>
             </tr>
-            {% for explain in explains %} {% for (idx, analysis) in
-            explain.analysis.iter().enumerate() %} {% if idx == 0 %}
+            {% for explain in explains %}
             <tr>
-                <td rowspan="{{ explain.analysis.len() }}">
-                    {{ explain.explain.select_type }}
+                <td>{{ explain.select_type }}</td>
+                <td><code class="language-sql">{{ explain.query }}</code></td>
+                <td>
+                    {% if explain.key.is_some() %}{{
+                    explain.key.as_ref().unwrap() }} {% endif %}
                 </td>
-                <td rowspan="{{ explain.analysis.len() }}">
-                    <code class="language-sql"
-                        >{{ explain.explain.query }}</code
-                    >
-                </td>
-                <td>{{ analysis.name }}</td>
-                <td rowspan="{{ explain.analysis.len() }}">
-                    {% if explain.explain.txn_uuid.is_some() %}
-                    <a
-                        href="/txn/{{ explain.explain.txn_uuid.as_ref().unwrap() }}"
+                <td>
+                    {% if explain.txn_uuid.is_some() %}
+                    <a href="/txn/{{ explain.txn_uuid.as_ref().unwrap() }}"
                         >TXN</a
                     >
                     {% endif %}
                 </td>
             </tr>
-            {% else %}
-            <tr>
-                <td>{{ analysis.name }}</td>
-            </tr>
-            {% endif %} {% endfor %} {% endfor %}
+            {% endfor %}
         </table>
     </body>
 </html>

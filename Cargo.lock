@@ -1386,6 +1386,7 @@ dependencies = [
  "clap",
  "dotenv",
  "futures-util",
+ "itertools",
  "log",
  "mysql_async",
  "pretty_env_logger",

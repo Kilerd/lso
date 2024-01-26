@@ -1,11 +1,19 @@
 use crate::domain::ExplainResult;
+use crate::routes::response::ExplainResultWithAnalysis;
 use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 
-#[derive(Template)]
+#[derive(Template, Debug)]
 #[template(path = "index.html")]
 pub struct IndexTemplate {
+    // name: String,
+    pub explains: Vec<ExplainResultWithAnalysis>,
+}
+
+#[derive(Template)]
+#[template(path = "journals.html")]
+pub struct JournalTemplate {
     // name: String,
     pub explains: Vec<ExplainResult>,
 }

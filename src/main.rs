@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(routes::common::index))
+        .route("/journals", get(routes::common::journals))
         .route("/txn/:txn_uuid", get(routes::common::txn_detail))
         .with_state(sqlite_pool.clone());
 
@@ -180,7 +181,6 @@ async fn mysql_bin_log_listener(sqlite_pool: Arc<Pool<Sqlite>>) -> Result<()> {
             }
             EventType::WRITE_ROWS_EVENT => {
                 let detail_event: WriteRowsEvent = event.read_event()?;
-                dbg!(detail_event);
             }
             // todo: handle bin log file switch event
             _ => {}
