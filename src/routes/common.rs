@@ -41,7 +41,7 @@ pub(crate) async fn index(State(pool): State<Arc<SqlitePool>>) -> impl IntoRespo
 }
 
 pub(crate) async fn journals(State(pool): State<Arc<SqlitePool>>) -> impl IntoResponse {
-    let explains = sqlx::query_as!(ExplainResult, r"SELECT * from explains order by id desc")
+    let explains = sqlx::query_as!(ExplainResult, r"SELECT * from explains order by record_time desc")
         .fetch_all(&*pool)
         .await
         .expect("cannot read records");
@@ -49,7 +49,7 @@ pub(crate) async fn journals(State(pool): State<Arc<SqlitePool>>) -> impl IntoRe
 }
 
 pub(crate) async fn txn_detail(Path(param): Path<(String,)>, State(pool): State<Arc<SqlitePool>>) -> impl IntoResponse {
-    let explains = sqlx::query_as!(ExplainResult, r"SELECT * from explains where txn_uuid = ? order by id desc", param.0)
+    let explains = sqlx::query_as!(ExplainResult, r"SELECT * from explains where txn_uuid = ? order by record_time desc", param.0)
         .fetch_all(&*pool)
         .await
         .expect("cannot read records");
