@@ -7,23 +7,27 @@ use axum::routing::get;
 use axum::Router;
 use dotenv::dotenv;
 use futures_util::StreamExt;
-use log::{debug, info};
+use log::{debug, info, warn};
 use mysql_async::binlog::events::{QueryEvent, WriteRowsEvent};
 use mysql_async::binlog::EventType;
 use mysql_async::prelude::{Query, Queryable, WithParams};
-use mysql_async::{BinlogStreamRequest, Opts};
+use mysql_async::{BinlogStreamRequest, Opts as MysqlOpts};
 use sqlx::sqlite::SqlitePool;
 use sqlx::{Connection, Pool, Sqlite};
 use uuid::Uuid;
 
 use crate::analyzers::no_index_match_analyzer::NoIndexMatchAnalyzer;
 use crate::analyzers::Analyzer;
+use crate::cli::Opts;
 use crate::domain::ExplainResult;
+use clap::Parser;
 
 mod analyzers;
 mod domain;
 mod routes;
 mod templates;
+
+mod cli;
 
 #[derive(Debug)]
 struct BinLogRow {
@@ -35,12 +39,20 @@ struct BinLogRow {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+
     pretty_env_logger::init();
     info!("Language security officer is launching...");
 
-    info!("opening the sqlite as storage...");
+    let opts = Opts::parse();
+
     //todo: cli flag to enable persistent storage and sql query histories
-    let sqlite_pool = Arc::new(SqlitePool::connect("sqlite::memory:").await?);
+    let sqlite_pool = if let Some(db_path) = opts.db {
+        info!("using file {} as persistent sqlite storage", db_path.display());
+        Arc::new(SqlitePool::connect(&format!("sqlite://{}", db_path.display())).await?)
+    } else {
+        warn!("using memory as sqlite storage, will erase all data when restart");
+        Arc::new(SqlitePool::connect("sqlite::memory:").await?)
+    };
 
     info!("running sqlite migrations...");
     sqlx::migrate!("./migrations").run(&*sqlite_pool).await?;
@@ -60,7 +72,7 @@ async fn main() -> Result<()> {
 }
 
 async fn mysql_bin_log_listener(sqlite_pool: Arc<Pool<Sqlite>>) -> Result<()> {
-    let opts = Opts::from_url(&std::env::var("SQL_DSN").expect("SQL_DSN must be set"))?;
+    let opts = MysqlOpts::from_url(&std::env::var("SQL_DSN").expect("SQL_DSN must be set"))?;
     let pool = mysql_async::Pool::new(opts);
     let mut conn = pool.get_conn().await?;
     let mut explain_conn = pool.get_conn().await?;
