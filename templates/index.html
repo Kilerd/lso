@@ -61,6 +61,31 @@
             tr:nth-child(even) {
                 background-color: #f6f6f6;
             }
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+            }
+
+            /* Tooltip text */
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 120px;
+                background-color: black;
+                color: #fff;
+                text-align: center;
+                padding: 5px 0;
+                border-radius: 6px;
+
+                /* Position the tooltip text - see examples below! */
+                position: absolute;
+                z-index: 1;
+            }
+
+            /* Show the tooltip text when you mouse over the tooltip container */
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+            }
         </style>
         <title>Document</title>
     </head>
@@ -85,7 +110,14 @@
                         >{{ explain.explain.query }}</code
                     >
                 </td>
-                <td>{{ analysis.name }}</td>
+                <td>
+                    <div class="tooltip">
+                        {{ analysis.name }}
+                        <span class="tooltiptext"
+                            >{{ analysis.msg.as_deref().unwrap_or("") }}</span
+                        >
+                    </div>
+                </td>
                 <td rowspan="{{ explain.analysis.len() }}">
                     {% if explain.explain.txn_uuid.is_some() %}
                     <a
@@ -97,7 +129,14 @@
             </tr>
             {% else %}
             <tr>
-                <td>{{ analysis.name }}</td>
+                <td>
+                    <div class="tooltip">
+                        {{ analysis.name }}
+                        <span class="tooltiptext"
+                            >{{ analysis.msg.as_deref().unwrap_or("") }}</span
+                        >
+                    </div>
+                </td>
             </tr>
             {% endif %} {% endfor %} {% endfor %}
         </table>
