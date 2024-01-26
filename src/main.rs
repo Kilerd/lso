@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(routes::common::index))
+        .route("/txn/:txn_uuid", get(routes::common::txn_detail))
         .with_state(sqlite_pool.clone());
 
     // run our app with hyper, listening globally on port 3000

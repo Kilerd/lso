@@ -25,13 +25,12 @@
         <title>Document</title>
     </head>
     <body>
-        <h1>hello lso</h1>
+        <h1>Txn {{ uuid }}</h1>
         <table>
             <tr>
                 <td>type</td>
                 <td>query</td>
                 <td>key match</td>
-                <td>Opration</td>
             </tr>
             {% for explain in explains %}
             <tr>
@@ -40,13 +39,6 @@
                 <td>
                     {% if explain.key.is_some() %}{{
                     explain.key.as_ref().unwrap() }} {% endif %}
-                </td>
-                <td>
-                    {% if explain.txn_uuid.is_some() %}
-                    <a href="/txn/{{ explain.txn_uuid.as_ref().unwrap() }}"
-                        >TXN</a
-                    >
-                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

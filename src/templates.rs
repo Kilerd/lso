@@ -10,6 +10,13 @@ pub struct IndexTemplate {
     pub explains: Vec<ExplainResult>,
 }
 
+#[derive(Template)]
+#[template(path = "txn_detail.html")]
+pub struct TxnDetailTemplate {
+    pub uuid: String,
+    pub explains: Vec<ExplainResult>,
+}
+
 pub struct HtmlTemplate<T>(pub T);
 
 impl<T> IntoResponse for HtmlTemplate<T>
